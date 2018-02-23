@@ -15,7 +15,7 @@ int ledPin = 6;
 // define Fitzhugh Nagumo parameters and starting values
 double f = 0, z = 0.25, a = 1, b = 0, c = 2, eps = 0.1, t = 0, I_new = 0, I_old = 0, I_diff = 0;
 double dt = 0.05; // chosen time step
-double g = 0.1; // coupling
+double g = 2.4; // coupling
 
 // starting equation values
 double v = 0, w = -0.5;
@@ -110,7 +110,6 @@ void displaySensorDetails(void)
 }
 
 void loop(){
-  //NOTE: THIS THING IS STOPPING AFTER COUNT = 4 AND WON'T DO ANYTHING. MAYBE MAPPED I_DIFF WRONG? RUN AND FIX IT. //
   if (count == 0) {
      beginTime = millis();
   }
@@ -127,8 +126,8 @@ void loop(){
   Serial.print("I_old = "); Serial.println(I_old);
   I_diff = I_new - I_old;
 
-  // mapping I_diff from (0:3) to (-1:1)
-  I_diff = ((I_diff) / 3.0) * 2;
+  // mapping I_diff from (0:1000) to (-1:1)
+  I_diff = ((-I_diff) / 1000.0) * 2;
   
   if (I_diff > 1) 
   {
@@ -139,7 +138,7 @@ void loop(){
     I_diff = -1;
   }
   
-  Serial.print("I_diff = "); Serial.println(I_diff);
+  Serial.print("I_diff = "); Serial.println(I_diff, 4);
   f = v_old - (1.0/3.0) * (v_old * v_old * v_old);
   dv = dt * (z * (f - w_old) - w_old + g*(I_diff));
   dw = dt * eps * (a * v_old - c * w_old);
@@ -199,15 +198,17 @@ void loop(){
   Serial.print("\n"); */
 
  Serial.print("Count: "); Serial.println(count);
+ // Got count to be working. New issue: WAY TOO LONG TO OSCILLATE
   if (count == 4) {
     endTime = millis();
-    //Serial.print("beginTime: "); Serial.println(beginTime);
-  //Serial.print("endTime: "); Serial.println(endTime);
-  int delayTime = 60 - (endTime - beginTime);
-  delay(delayTime);
-  Serial.print("delay time: "); Serial.println(delayTime);
-  //Serial.print("\n");
-  count = 0;
+    Serial.print("beginTime: "); Serial.println(beginTime);
+    Serial.print("endTime: "); Serial.println(endTime);
+    int delayTime = 308 - (endTime - beginTime);
+    Serial.print("Calculated delayTime: "); Serial.println(delayTime);
+    delay(delayTime);
+    Serial.print("delay time: "); Serial.println(delayTime);
+    //Serial.print("\n");
+    count = 0;
   }
   else {
     ++count;
