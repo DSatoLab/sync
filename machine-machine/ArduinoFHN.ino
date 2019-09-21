@@ -6,16 +6,18 @@
 unsigned long time;
 unsigned long beginTime;
 unsigned long endTime;
+unsigned long t1;
+unsigned long t2;
 
-int enablePin = 11;
+int enablePin = 11; // to enable the motor
 int in1Pin = 10;
 int in2Pin = 9;
 int ledPin = 6;
 
 // define Fitzhugh Nagumo parameters and starting values
-double f = 0, z = 0.25, a = 1, b = 0, c = 2, eps = 0.1, t = 0, I_new = 0, I_old = 0, I_diff = 0;
+double f = 0, z = 0.25, a = 1, b = 0, c = 2, eps = 0.08, I_new = 0, I_old = 0, I_diff = 0;
 double dt = 0.05; // chosen time step
-double g = 2.4; // coupling
+double g = 0.5; // coupling
 
 // starting equation values
 double v = 0, w = -0.5;
@@ -114,104 +116,80 @@ void loop(){
      beginTime = millis();
   }
 
-  if (count == 4) {
-  /* Get a new sensor event */ 
-  sensors_event_t event;
-  tsl.getEvent(&event);
-  I_new = event.light;
-  }
-
-  // Calculate some Fitzhugh Nagumo stuff 
-  Serial.print("I_new = "); Serial.println(I_new);
-  Serial.print("I_old = "); Serial.println(I_old);
-  I_diff = I_new - I_old;
-
-  // mapping I_diff from (0:1000) to (-1:1)
-  I_diff = ((-I_diff) / 1000.0) * 2;
+  // want to only get new sensor event and do new calculations every 10 interations
+  if (count == 10) {
+    
+    /* Get a new sensor event */ 
+    sensors_event_t event;
+    tsl.getEvent(&event);
+    I_new = event.light;
   
-  if (I_diff > 1) 
-  {
-    I_diff = 1;
-  }
-  if (I_diff < -1) 
-  {
-    I_diff = -1;
+    I_diff = I_new - I_old;
+    
+    if (I_diff > 3) {
+      I_diff = 3;
+    }
+    if (I_diff < -3) {
+      I_diff = -3;
+    }
+  
+    I_old = I_new;
+  
+    // Map voltage (range: -1:1) to new range (70:255) for motor output
+    double mappedVoltage = (((v + 1) / 2) * 185) + 70;
+    
+    if (mappedVoltage > 255) {
+      mappedVoltage = 255;
+    }
+    if (mappedVoltage < 70) {
+      mappedVoltage = 70;
+    }
+  
+    // map voltage (range: -0.5:1) to new range (0:255)for LED output
+    double LEDmap = ((v + 0.5) / 1.5) * 255;
+  
+    if (LEDmap > 255) {
+      LEDmap = 255;
+    }
+    if (LEDmap < 0) {
+      LEDmap = 0;
+    }
+  
+    digitalWrite(in1Pin, HIGH);
+    digitalWrite(in2Pin, LOW);
+     
+    analogWrite(ledPin, LEDmap);
+    analogWrite(enablePin, mappedVoltage);
+  
+    endTime = millis();
+    int delayTime = 120 - (endTime - beginTime);
+       
+    if (delayTime < 0) {
+      delayTime = 0;
+    }
+    
+    delay(delayTime);
+    count = 0;
+  
+  } 
+  else {
+    ++count;
   }
   
-  Serial.print("I_diff = "); Serial.println(I_diff, 4);
+  // Calculate Fitzhugh Nagumo stuff
   f = v_old - (1.0/3.0) * (v_old * v_old * v_old);
   dv = dt * (z * (f - w_old) - w_old + g*(I_diff));
   dw = dt * eps * (a * v_old - c * w_old);
 
+  double left = (z * (f - w_old) - w_old);
+  double right = g*I_diff;
+
   // Calculate v and w based on rate of change
-  t += dt;
   v = v_old + dv;
   w = w_old + dw;
 
   // replace old variables
   v_old = v;
   w_old = w;
-
-  if (count == 4) {
-    I_old = I_new;
-  }
-
-  // Map voltage (range: -1:1) to new range (0:255)
-  double mappedVoltage = ((v + 1) / 2) * 255;
-  
-  if (mappedVoltage > 255) 
-  {
-    mappedVoltage = 255;
-  }
-  if (mappedVoltage < 0) 
-  {
-    mappedVoltage = 0;
-  }
-
-  // map voltage (range: -0.5:1) to new range (0:255)
-  double LEDmap = ((v + 0.5) / 1.5) * 255;
-
-  if (LEDmap > 255) 
-  {
-    LEDmap = 255;
-  }
-  if (LEDmap < 0) 
-  {
-    LEDmap = 0;
-  }
-  
-/*
-  Serial.print("v value: "); Serial.println(v);
-  Serial.print("mappedVoltage value: "); Serial.println(mappedVoltage);
-  Serial.print("\n");  */
-
-  digitalWrite(in1Pin, HIGH);
-  digitalWrite(in2Pin, LOW);
-
-   
-  analogWrite(ledPin, LEDmap);
-  analogWrite(enablePin, mappedVoltage);
-
-  
-  /* Serial.print("beginTime: "); Serial.println(beginTime);
-  Serial.print("endTime: "); Serial.println(endTime);
-  Serial.print("\n"); */
-
- Serial.print("Count: "); Serial.println(count);
- // Got count to be working. New issue: WAY TOO LONG TO OSCILLATE
-  if (count == 4) {
-    endTime = millis();
-    Serial.print("beginTime: "); Serial.println(beginTime);
-    Serial.print("endTime: "); Serial.println(endTime);
-    int delayTime = 308 - (endTime - beginTime);
-    Serial.print("Calculated delayTime: "); Serial.println(delayTime);
-    delay(delayTime);
-    Serial.print("delay time: "); Serial.println(delayTime);
-    //Serial.print("\n");
-    count = 0;
-  }
-  else {
-    ++count;
-  }
 }
 
